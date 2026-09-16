@@ -1,6 +1,6 @@
-import pytest
-from src.tools import consultar_base, consultar_tool
 from src.graph import route_risk
+from src.tools import consultar_base, consultar_tool
+
 
 def test_consultar_base_sucesso():
     # Caminho de sucesso - base de conhecimento

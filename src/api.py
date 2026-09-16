@@ -1,7 +1,8 @@
 import uuid
-from typing import Optional
+
 from fastapi import FastAPI, HTTPException
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
+
 from src.graph import build_graph
 
 app = FastAPI(
@@ -14,8 +15,8 @@ app = FastAPI(
 graph = build_graph()
 
 class ChamadoRequest(BaseModel):
-    title: str
-    description: str
+    title: str = Field(min_length=3, description="Título do chamado (obrigatório)")
+    description: str = Field(min_length=10, description="Descrição do chamado (obrigatória)")
 
 class AprovarRequest(BaseModel):
     approve: bool
