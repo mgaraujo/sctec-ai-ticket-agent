@@ -5,6 +5,7 @@ from langgraph.graph import StateGraph, END
 from langgraph.checkpoint.memory import InMemorySaver
 from langchain_ollama import ChatOllama
 from langchain_openai import ChatOpenAI
+from langchain_core.runnables import RunnableConfig
 from src.state import GraphState, TicketOutput
 from src.tools import consultar_base, consultar_tool
 
@@ -12,19 +13,24 @@ from src.tools import consultar_base, consultar_tool
 logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(name)s - %(levelname)s - %(message)s")
 logger = logging.getLogger("TriagemAgente")
 
+def get_trace_id(config: RunnableConfig) -> str:
+    """Extrai o thread_id da configuração do LangGraph para atuar como trace_id correlacionado."""
+    return config.get("configurable", {}).get("thread_id", "trace-desconhecido")
+
 def get_llm():
     # Usa Ollama local, ou OpenAI se configurado
     if os.getenv("OPENAI_API_KEY") and os.getenv("OPENAI_API_KEY") != "your_openai_api_key_here":
         return ChatOpenAI(model="gpt-4o-mini", temperature=0)
     return ChatOllama(model=os.getenv("MODEL_NAME", "llama3.2"), temperature=0)
 
-def analisar_chamado(state: GraphState) -> GraphState:
-    logger.info(f"[NODE] analisar_chamado | Chamado: {state['ticket_title']}")
-    # Na prática, poderíamos fazer extrações preliminares aqui.
+def analisar_chamado(state: GraphState, config: RunnableConfig) -> GraphState:
+    trace_id = get_trace_id(config)
+    logger.info(f"[Trace: {trace_id}] [NODE] analisar_chamado | Chamado: {state['ticket_title']}")
     return state
 
-def classificar_risco(state: GraphState) -> GraphState:
-    logger.info("[NODE] classificar_risco | Avaliando complexidade")
+def classificar_risco(state: GraphState, config: RunnableConfig) -> GraphState:
+    trace_id = get_trace_id(config)
+    logger.info(f"[Trace: {trace_id}] [NODE] classificar_risco | Avaliando complexidade")
     llm = get_llm()
     prompt = f"Analise o chamado abaixo e classifique o risco apenas como 'simples' ou 'critico'.\n\nTítulo: {state['ticket_title']}\nDescrição: {state['ticket_description']}\n\nRetorne apenas a palavra simples ou critico."
     
@@ -36,31 +42,35 @@ def classificar_risco(state: GraphState) -> GraphState:
     else:
         risk = "simples"
         
-    logger.info(f"[DECISÃO] Risco classificado como: {risk}")
+    logger.info(f"[Trace: {trace_id}] [DECISÃO] Risco classificado como: {risk}")
     return {"risk_level": risk}
 
 def route_risk(state: GraphState) -> Literal["consultar_base", "consultar_tool"]:
+    # Edge condicional não recebe RunnableConfig facilmente em todas as versoes, logamos antes.
     if state.get("risk_level") == "critico":
         return "consultar_tool"
     return "consultar_base"
 
-def node_consultar_base(state: GraphState) -> GraphState:
-    logger.info("[NODE] consultar_base | Buscando contexto")
+def node_consultar_base(state: GraphState, config: RunnableConfig) -> GraphState:
+    trace_id = get_trace_id(config)
+    logger.info(f"[Trace: {trace_id}] [NODE] consultar_base | Buscando contexto")
     query = state['ticket_title']
     resultado = consultar_base.invoke({"query": query})
-    logger.info(f"[TOOL] Resultado da base: {resultado}")
+    logger.info(f"[Trace: {trace_id}] [TOOL] Resultado da base: {resultado}")
     return {"context": resultado}
 
-def node_consultar_tool(state: GraphState) -> GraphState:
-    logger.info("[NODE] consultar_tool | Executando ferramenta crítica")
+def node_consultar_tool(state: GraphState, config: RunnableConfig) -> GraphState:
+    trace_id = get_trace_id(config)
+    logger.info(f"[Trace: {trace_id}] [NODE] consultar_tool | Executando ferramenta crítica")
     # Tenta usar a tool com o título como ID para simular a extração
     ticket_id = state['ticket_title'].split()[0] if state['ticket_title'] else ""
     resultado = consultar_tool.invoke({"ticket_id": ticket_id, "action": "invalidate_permission_cache"})
-    logger.info(f"[TOOL] Resultado da ferramenta: {resultado}")
+    logger.info(f"[Trace: {trace_id}] [TOOL] Resultado da ferramenta: {resultado}")
     return {"tool_output": resultado}
 
-def gerar_resposta(state: GraphState) -> GraphState:
-    logger.info("[NODE] gerar_resposta | Construindo saída estruturada")
+def gerar_resposta(state: GraphState, config: RunnableConfig) -> GraphState:
+    trace_id = get_trace_id(config)
+    logger.info(f"[Trace: {trace_id}] [NODE] gerar_resposta | Construindo saída estruturada")
     llm = get_llm()
     structured_llm = llm.with_structured_output(TicketOutput)
     
@@ -78,7 +88,7 @@ def gerar_resposta(state: GraphState) -> GraphState:
         response = structured_llm.invoke(prompt)
         return {"structured_response": response}
     except Exception as e:
-        logger.error(f"[ERRO] Falha ao gerar resposta estruturada: {e}")
+        logger.error(f"[Trace: {trace_id}] [ERRO] Falha ao gerar resposta estruturada: {e}")
         return {"error": str(e)}
 
 # Configura o Grafo
@@ -109,7 +119,6 @@ def build_graph():
     workflow.add_edge("gerar_resposta", END)
     
     checkpointer = InMemorySaver()
-    # Adicionamos Human-in-the-loop antes de consultar a tool crítica (Extensão)
     graph = workflow.compile(
         checkpointer=checkpointer,
         interrupt_before=["consultar_tool"]
