@@ -2,6 +2,7 @@ import logging
 import os
 from typing import Literal
 
+from dotenv import load_dotenv
 from langchain_core.runnables import RunnableConfig
 from langchain_ollama import ChatOllama
 from langchain_openai import ChatOpenAI
@@ -10,7 +11,6 @@ from langgraph.graph import END, StateGraph
 
 from src.state import GraphState, TicketOutput
 from src.tools import consultar_base, consultar_tool
-from dotenv import load_dotenv
 
 load_dotenv()
 

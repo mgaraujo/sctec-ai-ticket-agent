@@ -1,6 +1,5 @@
-import os
-from langchain_core.tools import tool
 import requests
+from langchain_core.tools import tool
 
 # Mock database
 KNOWLEDGE_BASE = {
@@ -42,7 +41,7 @@ def consultar_tool(ticket_id: str, action: str) -> str:
             response.raise_for_status()
     except requests.exceptions.RequestException as e:
         # Falha HTTP/Webhook tratada de forma controlada sem estourar exceção para o agente
-        return f"Erro de integração (Webhook falhou): Falha ao contatar serviço externo. Detalhe: {str(e)}"
+        return f"Erro de integração (Webhook falhou): Falha ao contatar serviço externo. Detalhe: {e!s}"
     
     if action == "invalidate_permission_cache":
         return f"Sucesso: Cache de permissão invalidado para o contexto do ticket {ticket_id}."

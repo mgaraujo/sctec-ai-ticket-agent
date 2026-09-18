@@ -1,12 +1,12 @@
+import re
 import uuid
+from datetime import datetime, timezone
 
 from fastapi import FastAPI, HTTPException
-import re
-from pydantic import BaseModel, Field, field_validator, model_validator
-from datetime import datetime
-from src.history import append_history, get_ticket
+from pydantic import BaseModel, Field, model_validator
 
 from src.graph import build_graph
+from src.history import append_history, get_ticket
 
 app = FastAPI(
     title="Agente de Triagem API",
@@ -50,12 +50,15 @@ def _record_history(ticket_id: str, title: str, description: str, status: str, r
         status: "completed", "error", "aborted", "pending_human_approval".
         response: Payload retornado ao cliente (quando houver).
     """
+    # Convert Pydantic models to plain dicts for JSON serialization
+    if response is not None and hasattr(response, "model_dump"):
+        response = response.model_dump()
     record = {
         "ticket_id": ticket_id,
         "title": title,
         "description": description,
         "status": status,
-        "timestamp": datetime.utcnow().isoformat() + "Z",
+        "timestamp": datetime.now(timezone.utc).isoformat() + "Z",
         "response": response,
     }
     append_history(record)
@@ -79,14 +82,22 @@ def iniciar_triagem(request: ChamadoRequest):
     final_state = state_snapshot.values
 
     # Se estiver pausado
-        # Se estiver pausado
-    if state_snapshot.next:
-        _record_history(thread_id, request.title, request.description, "pending_human_approval", None)
-        return {
-            "status": "pending_human_approval",
-            "thread_id": thread_id,
-            "message": f"O fluxo foi pausado antes do nó: {state_snapshot.next}. Ferramenta crítica pendente. Faça POST em /triagem/{thread_id}/approve para continuar."
-        }
+    # Inclui detalhes para o operador humano decidir
+    risk = state_snapshot.values.get("risk_level")
+    pending_node = state_snapshot.next
+    _record_history(thread_id, request.title, request.description, "pending_human_approval", None)
+    return {
+        "status": "pending_human_approval",
+        "thread_id": thread_id,
+        "risk_level": risk,
+        "pending_node": pending_node,
+        "message": (
+            f"O fluxo foi pausado antes do nó '{pending_node}'. "
+            f"Risco classificado como '{risk}'. "
+            "Ferramenta crítica requer aprovação humana. "
+            f"Faça POST em /triagem/{thread_id}/approve para continuar."
+        ),
+    }
 
     # Se terminou normalmente ou com erro
     if final_state.get("error"):
@@ -118,6 +129,8 @@ def aprovar_triagem(thread_id: str, request: AprovarRequest):
     for _ in graph.stream(None, config=config, stream_mode="values"):
         pass
         
+    # Obtém o estado final após retomar
+    final_state = graph.get_state(config).values
     # Se terminou normalmente ou com erro
     if final_state.get("error"):
         # Record error

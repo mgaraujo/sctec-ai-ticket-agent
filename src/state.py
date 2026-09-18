@@ -1,5 +1,7 @@
-from typing import TypedDict, Annotated, Optional
+from typing import TypedDict
+
 from pydantic import BaseModel, Field
+
 
 class TicketOutput(BaseModel):
     category: str = Field(description="Categoria do chamado (ex: infraestrutura, permissão, etc)")
@@ -11,8 +13,8 @@ class TicketOutput(BaseModel):
 class GraphState(TypedDict):
     ticket_title: str
     ticket_description: str
-    risk_level: Optional[str]  # "simples" ou "critico"
-    context: Optional[str]
-    tool_output: Optional[str]
-    structured_response: Optional[TicketOutput]
-    error: Optional[str]
+    risk_level: str | None  # "simples" ou "critico"
+    context: str | None
+    tool_output: str | None
+    structured_response: TicketOutput | None
+    error: str | None

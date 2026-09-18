@@ -1,1 +1,74 @@
-[]
+[
+  {
+    "ticket_id": "977414ee-ca19-4350-96cf-b02e5e678d1e",
+    "title": "Problema de login",
+    "description": "Usuário não consegue acessar a VPN.",
+    "status": "completed",
+    "timestamp": "2026-09-18T23:06:38.027655+00:00Z",
+    "response": {
+      "category": "permissão",
+      "severity": "baixa",
+      "summary": "Usuário não consegue acessar a VPN.",
+      "suggested_action": "Instruir o usuário a limpar o cache do navegador ou redefinir a senha.",
+      "requires_human": false
+    }
+  },
+  {
+    "ticket_id": "9c73dbf9-43fe-4c30-bcdb-9edd161db5b2",
+    "title": "Problema de login",
+    "description": "Usuário não consegue acessar a VPN.",
+    "status": "completed",
+    "timestamp": "2026-09-18T23:10:41.020055+00:00Z",
+    "response": {
+      "category": "permissão",
+      "severity": "baixa",
+      "summary": "Usuário não consegue acessar a VPN.",
+      "suggested_action": "Instruir o usuário a limpar o cache do navegador ou redefinir a senha.",
+      "requires_human": false
+    }
+  },
+  {
+    "ticket_id": "3a54efab-116d-4f18-bad6-2c792ebb5872",
+    "title": "TICKET‑999 Base de dados corrompida",
+    "description": "Precisamos invalidar o cache urgentemente.",
+    "status": "pending_human_approval",
+    "timestamp": "2026-09-18T23:11:32.241851+00:00Z",
+    "response": null
+  },
+  {
+    "ticket_id": "3a54efab-116d-4f18-bad6-2c792ebb5872",
+    "title": "",
+    "description": "",
+    "status": "completed",
+    "timestamp": "2026-09-18T23:12:08.546376+00:00Z",
+    "response": {
+      "category": "infraestrutura",
+      "severity": "crítica",
+      "summary": "Base de dados corrompida e necessidade de invalidação de cache.",
+      "suggested_action": "Realizar a recuperação da base de dados e monitorar o sistema após a invalidação do cache.",
+      "requires_human": true
+    }
+  },
+  {
+    "ticket_id": "6e20ee56-ecc1-4121-82cd-81f410f62b44",
+    "title": "Problema de login",
+    "description": "Usuário não consegue acessar a VPN.",
+    "status": "completed",
+    "timestamp": "2026-09-18T23:14:50.035816+00:00Z",
+    "response": {
+      "category": "permissão",
+      "severity": "baixa",
+      "summary": "Usuário não consegue acessar a VPN.",
+      "suggested_action": "Instruir o usuário a limpar o cache do navegador ou redefinir a senha.",
+      "requires_human": false
+    }
+  },
+  {
+    "ticket_id": "eaa3510c-fc44-437f-95e9-e824d94e09e8",
+    "title": "base de dados corrompida",
+    "description": "base de dados corrompida",
+    "status": "pending_human_approval",
+    "timestamp": "2026-09-18T23:19:34.849052+00:00Z",
+    "response": null
+  }
+]
