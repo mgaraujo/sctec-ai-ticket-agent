@@ -80,3 +80,17 @@ Para permitir a correlação de logs de ponta a ponta, implementamos um mapeamen
 ## 11. Limitações e Vídeo
 - **Limitações**: Como não estamos usando banco de dados real persistente, reinicializações da API limpam os states (`InMemorySaver`).
 - **Vídeo de Demonstração**: [Link do Vídeo]
+
+## 12. Segurança
+
+### Validação de Entrada
+- `title` tem `Field(min_length=3)` e `description` tem `Field(min_length=10)`. O FastAPI rejeita entradas que não atendam a esses requisitos com erro **422**.
+
+### Proteção contra Prompt Injection
+- `ChamadoRequest` contém um `@field_validator('title', 'description')` que procura padrões suspeitos (ex.: “ignore all previous instructions”, “system prompt”, “esqueça tudo”). Caso detectado, a requisição é bloqueada com a mensagem **“Potencial ataque de Prompt Injection detectado. Requisição bloqueada.”**. Essa validação ocorre antes de qualquer chamada ao LLM.
+
+### Tratamento de Falhas de Webhook
+- Todas as tools que fazem chamadas HTTP estão envoltas em `try...except requests.exceptions.RequestException`. Em caso de falha, retornamos um erro controlado no state ao invés de gerar exceção não tratada.
+
+### Observabilidade de Segurança
+- Cada log inclui o `trace_id` correlacionado ao `thread_id`, permitindo auditoria completa de chamadas potencialmente maliciosas.
