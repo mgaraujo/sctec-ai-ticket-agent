@@ -1,5 +1,17 @@
 import requests
-from langchain_core.tools import tool
+try:
+    from langchain_core.tools import tool
+except ImportError:  # pragma: no cover
+    def tool(fn):
+        """Simple fallback decorator that wraps a function in an object exposing a callable and .invoke method."""
+        class ToolWrapper:
+            def __init__(self, func):
+                self._func = func
+            def __call__(self, *args, **kwargs):
+                return self._func(*args, **kwargs)
+            def invoke(self, inputs: dict):
+                return self._func(**inputs)
+        return ToolWrapper(fn)
 
 # Mock database
 KNOWLEDGE_BASE = {
