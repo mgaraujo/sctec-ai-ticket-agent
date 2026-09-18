@@ -17,7 +17,7 @@ except ImportError:  # pragma: no cover
         """Placeholder for pydantic Field – returns None.
         The tests only need the class to exist; metadata is ignored.
         """
-        return None
+        return
 
 
 class TicketOutput(BaseModel):

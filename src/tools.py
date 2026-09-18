@@ -1,4 +1,3 @@
-import requests
 try:
     from langchain_core.tools import tool
 except ImportError:  # pragma: no cover
@@ -12,6 +11,8 @@ except ImportError:  # pragma: no cover
             def invoke(self, inputs: dict):
                 return self._func(**inputs)
         return ToolWrapper(fn)
+
+import requests
 
 # Mock database
 KNOWLEDGE_BASE = {

@@ -7,13 +7,13 @@ try:
 except ImportError:  # pragma: no cover
     def load_dotenv():
         """Fallback no-op when python-dotenv is not installed."""
-        return None
+        return
 try:
     from langchain_core.runnables import RunnableConfig
 except ImportError:  # pragma: no cover
     class RunnableConfig(dict):
         """Fallback stub when langchain_core is unavailable."""
-        pass
+        ...
 
 try:
     from langchain_ollama import ChatOllama
