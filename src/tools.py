@@ -12,7 +12,17 @@ except ImportError:  # pragma: no cover
                 return self._func(**inputs)
         return ToolWrapper(fn)
 
-import requests
+try:
+    import requests
+except ImportError:  # pragma: no cover
+    class _RequestsStub:
+        class Response:
+            def raise_for_status(self):
+                pass
+        @staticmethod
+        def post(url, timeout=None):
+            return _RequestsStub.Response()
+    requests = _RequestsStub
 
 # Mock database
 KNOWLEDGE_BASE = {
