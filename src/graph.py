@@ -2,15 +2,30 @@ import logging
 import os
 from typing import Literal
 
-from langchain_core.runnables import RunnableConfig
-from langchain_ollama import ChatOllama
-from langchain_openai import ChatOpenAI
-from langgraph.checkpoint.memory import InMemorySaver
-from langgraph.graph import END, StateGraph
+try:
+    from dotenv import load_dotenv
+except ImportError:  # pragma: no cover
+    def load_dotenv():
+        """Fallback no-op when python-dotenv is not installed."""
+        return
+try:
+    from langchain_core.runnables import RunnableConfig
+except ImportError:  # pragma: no cover
+    class RunnableConfig(dict):
+        """Fallback stub when langchain_core is unavailable."""
+
+
+try:
+    from langchain_ollama import ChatOllama
+    from langchain_openai import ChatOpenAI
+    from langgraph.checkpoint.memory import InMemorySaver
+    from langgraph.graph import END, StateGraph
+except ImportError:  # pragma: no cover
+    ChatOllama = ChatOpenAI = InMemorySaver = END = StateGraph = None
+
 
 from src.state import GraphState, TicketOutput
 from src.tools import consultar_base, consultar_tool
-from dotenv import load_dotenv
 
 load_dotenv()
 

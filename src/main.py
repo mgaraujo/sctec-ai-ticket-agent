@@ -1,7 +1,8 @@
-import sys
-import uuid
 import logging
+import uuid
+
 from src.graph import build_graph
+
 
 def run_scenario(title: str, description: str, thread_id: str):
     print(f"\n{'='*50}\nIniciando cenário para o chamado: '{title}'")

@@ -13,7 +13,7 @@ def load_history() -> list:
     """Load the entire ticket history as a list of dictionaries."""
     try:
         return json.loads(HISTORY_FILE.read_text(encoding='utf-8'))
-    except Exception:
+    except json.JSONDecodeError:
         return []
 
 def append_history(record: dict) -> None:
