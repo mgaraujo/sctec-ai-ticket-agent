@@ -13,7 +13,7 @@ try:
 except ImportError:  # pragma: no cover
     class RunnableConfig(dict):
         """Fallback stub when langchain_core is unavailable."""
-        ...
+
 
 try:
     from langchain_ollama import ChatOllama
