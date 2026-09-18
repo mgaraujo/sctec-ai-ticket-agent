@@ -1,13 +1,18 @@
-import os
 import logging
+import os
 from typing import Literal
-from langgraph.graph import StateGraph, END
-from langgraph.checkpoint.memory import InMemorySaver
+
+from langchain_core.runnables import RunnableConfig
 from langchain_ollama import ChatOllama
 from langchain_openai import ChatOpenAI
-from langchain_core.runnables import RunnableConfig
+from langgraph.checkpoint.memory import InMemorySaver
+from langgraph.graph import END, StateGraph
+
 from src.state import GraphState, TicketOutput
 from src.tools import consultar_base, consultar_tool
+from dotenv import load_dotenv
+
+load_dotenv()
 
 # Setup básico de observabilidade
 logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(name)s - %(levelname)s - %(message)s")
@@ -74,7 +79,7 @@ def gerar_resposta(state: GraphState, config: RunnableConfig) -> GraphState:
     llm = get_llm()
     structured_llm = llm.with_structured_output(TicketOutput)
     
-    prompt = f"Crie um relatório estruturado de triagem para o chamado.\n\n"
+    prompt = "Crie um relatório estruturado de triagem para o chamado.\n\n"
     prompt += f"Título: {state['ticket_title']}\n"
     prompt += f"Descrição: {state['ticket_description']}\n"
     prompt += f"Risco identificado: {state['risk_level']}\n"
@@ -87,7 +92,7 @@ def gerar_resposta(state: GraphState, config: RunnableConfig) -> GraphState:
     try:
         response = structured_llm.invoke(prompt)
         return {"structured_response": response}
-    except Exception as e:
+    except Exception as e:  # noqa: BLE001
         logger.error(f"[Trace: {trace_id}] [ERRO] Falha ao gerar resposta estruturada: {e}")
         return {"error": str(e)}
 
