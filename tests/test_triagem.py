@@ -19,4 +19,5 @@ def test_comportamento_grafo_roteamento():
     
     # Testa a decisão de roteamento
     assert route_risk(state_simples) == "consultar_base"
-    assert route_risk(state_critico) == "consultar_tool"
+    # Chamados críticos devem ir para aguardar_aprovacao_humana, não diretamente para consultar_tool
+    assert route_risk(state_critico) == "aguardar_aprovacao_humana"

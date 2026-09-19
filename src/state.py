@@ -35,3 +35,5 @@ class GraphState(TypedDict):
     tool_output: str | None
     structured_response: TicketOutput | None
     error: str | None
+    human_approved: bool | None  # None, True, ou False
+    status: str | None  # "processing", "waiting_human_action", "completed", "rejected"
