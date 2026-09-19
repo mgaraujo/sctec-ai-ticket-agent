@@ -44,7 +44,7 @@ def run_scenario(title: str, description: str, thread_id: str):
         print("\n[FALHA] O fluxo encontrou um erro:", final_state["error"])
     elif final_state.get("status") == "waiting_human_action":
         print("\n[STATUS] Chamado crítico aguardando ação humana (aprovação rejeitada ou pendente)")
-        print(f"  Resposta Estruturada:")
+        print("  Resposta Estruturada:")
         if final_state.get("structured_response"):
             resp = final_state["structured_response"]
             print(f"    Categoria: {resp.category}")

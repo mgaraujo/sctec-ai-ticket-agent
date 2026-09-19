@@ -18,13 +18,11 @@ except ImportError:  # pragma: no cover
 from langchain_ollama import ChatOllama
 from langchain_openai import ChatOpenAI
 from langgraph.checkpoint.memory import InMemorySaver
-from langgraph.types import interrupt
 from langgraph.graph import END, StateGraph
-
+from langgraph.types import interrupt
 
 from src.state import GraphState, TicketOutput
-from src.tools import consultar_base, consultar_tool
-
+from src.tools import consultar_base
 
 load_dotenv()
 
@@ -135,10 +133,13 @@ def route_after_llm_response(
     Se sim, espera aprovação. Se não, finaliza direto.
     """
     structured_response = state.get("structured_response")
-    if structured_response and hasattr(structured_response, "requires_human"):
-        if structured_response.requires_human:
-            return "aguardar_aprovacao_humana"
-    
+    if (
+        structured_response
+        and hasattr(structured_response, "requires_human")
+        and structured_response.requires_human
+    ):
+        return "aguardar_aprovacao_humana"
+
     return "finalizar_chamado"
 
 
@@ -346,8 +347,9 @@ Dados do chamado:
             "structured_response": response
         }
 
-    except Exception as e:
-
+    except (KeyboardInterrupt, SystemExit):
+        raise
+    except Exception as e:  # noqa: BLE001
         logger.error(
             f"[Trace: {trace_id}] "
             f"[ERRO] Falha ao gerar resposta: {e}"
