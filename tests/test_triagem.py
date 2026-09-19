@@ -1,6 +1,8 @@
+from fastapi.testclient import TestClient
+
+from src.api import app
 from src.graph import route_after_llm_response, route_human_decision
 from src.tools import consultar_base
-from src.state import TicketOutput
 
 
 def test_consultar_base_sucesso():
@@ -41,9 +43,6 @@ def test_comportamento_roteamento_human_decision():
 
 def test_sucesso_chamado_simples():
     """Fluxo principal: chamado simples vai direto para completed."""
-    from fastapi.testclient import TestClient
-    from src.api import app
-
     client = TestClient(app)
     response = client.post(
         "/triagem",
@@ -62,9 +61,6 @@ def test_sucesso_chamado_simples():
 
 def test_falha_entrada_invalida():
     """Validação: entrada inválida retorna erro 422."""
-    from fastapi.testclient import TestClient
-    from src.api import app
-
     client = TestClient(app)
 
     # Title muito curto
@@ -87,9 +83,6 @@ def test_falha_entrada_invalida():
 
 def test_chamado_critico_pendente():
     """Human-in-the-Loop: chamado crítico retorna pending_human_approval."""
-    from fastapi.testclient import TestClient
-    from src.api import app
-
     client = TestClient(app)
     response = client.post(
         "/triagem",
@@ -107,9 +100,6 @@ def test_chamado_critico_pendente():
 
 def test_aprovacao_chamado_critico():
     """Aprovação: crítico com aprovação retorna completed."""
-    from fastapi.testclient import TestClient
-    from src.api import app
-
     client = TestClient(app)
 
     # Criar chamado crítico
@@ -136,9 +126,6 @@ def test_aprovacao_chamado_critico():
 
 def test_rejeicao_chamado_critico():
     """Rejeição: crítico rejeitado retorna rejected."""
-    from fastapi.testclient import TestClient
-    from src.api import app
-
     client = TestClient(app)
 
     # Criar chamado crítico
