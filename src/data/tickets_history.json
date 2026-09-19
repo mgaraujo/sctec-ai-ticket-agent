@@ -1016,5 +1016,65 @@
     "status": "rejected",
     "timestamp": "2026-09-19T17:14:53.791182+00:00Z",
     "response": null
+  },
+  {
+    "ticket_id": "01314b0b-8c9b-4a42-bd41-19c6650020c5",
+    "title": "Problema de login",
+    "description": "Um usuário não consegue fazer login no sistema",
+    "status": "completed",
+    "timestamp": "2026-09-19T17:16:31.427899+00:00Z",
+    "response": {
+      "category": "autenticação",
+      "severity": "média",
+      "summary": "Um usuário não consegue fazer login no sistema.",
+      "suggested_action": "Instruir o usuário a limpar o cache ou redefinir a senha.",
+      "requires_human": false
+    }
+  },
+  {
+    "ticket_id": "0e8ac9ff-05e2-4053-89c3-35371e419de5",
+    "title": "Banco de dados não responde",
+    "description": "BD crítico está offline, produção parada",
+    "status": "pending_human_approval",
+    "timestamp": "2026-09-19T17:16:32.485764+00:00Z",
+    "response": null
+  },
+  {
+    "ticket_id": "b9357ba8-e36b-418f-9372-536d2bda0893",
+    "title": "Falha crítica de BD",
+    "description": "BD está completamente offline",
+    "status": "pending_human_approval",
+    "timestamp": "2026-09-19T17:16:33.505485+00:00Z",
+    "response": null
+  },
+  {
+    "ticket_id": "b9357ba8-e36b-418f-9372-536d2bda0893",
+    "title": "Falha crítica de BD",
+    "description": "BD está completamente offline",
+    "status": "completed",
+    "timestamp": "2026-09-19T17:16:33.529023+00:00Z",
+    "response": {
+      "category": "infraestrutura",
+      "severity": "crítica",
+      "summary": "Banco de dados está completamente offline, impactando a operação.",
+      "suggested_action": "Acionar a equipe de infraestrutura para investigar e restaurar o banco de dados imediatamente.",
+      "requires_human": true
+    }
+  },
+  {
+    "ticket_id": "1c32ef30-8994-4f20-bc1f-50efdc5380e7",
+    "title": "Infra crítica falha",
+    "description": "Servidor de produção está fora",
+    "status": "pending_human_approval",
+    "timestamp": "2026-09-19T17:16:34.614199+00:00Z",
+    "response": null
+  },
+  {
+    "ticket_id": "1c32ef30-8994-4f20-bc1f-50efdc5380e7",
+    "title": "Infra crítica falha",
+    "description": "Servidor de produção está fora",
+    "status": "rejected",
+    "timestamp": "2026-09-19T17:16:34.638614+00:00Z",
+    "response": null
   }
 ]
