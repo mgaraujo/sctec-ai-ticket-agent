@@ -1,7 +1,10 @@
+from unittest.mock import MagicMock, patch
+
 from fastapi.testclient import TestClient
 
 from src.api import app
 from src.graph import route_after_llm_response, route_human_decision
+from src.state import TicketOutput
 from src.tools import consultar_base
 
 
@@ -41,8 +44,21 @@ def test_comportamento_roteamento_human_decision():
     assert route_human_decision(state_rejeitado) == "finalizar_sem_acao"
 
 
-def test_sucesso_chamado_simples():
+@patch("src.graph.get_llm")
+def test_sucesso_chamado_simples(mock_get_llm):
     """Fluxo principal: chamado simples vai direto para completed."""
+    # Mock do LLM para retornar uma resposta simples (não-crítica)
+    mock_llm = MagicMock()
+    mock_response = TicketOutput(
+        category="autenticação",
+        severity="média",
+        summary="Problema de login do usuário",
+        suggested_action="Resetar senha do usuário",
+        requires_human=False
+    )
+    mock_llm.with_structured_output.return_value.invoke.return_value = mock_response
+    mock_get_llm.return_value = mock_llm
+
     client = TestClient(app)
     response = client.post(
         "/triagem",
@@ -81,8 +97,21 @@ def test_falha_entrada_invalida():
     assert response.status_code == 422
 
 
-def test_chamado_critico_pendente():
+@patch("src.graph.get_llm")
+def test_chamado_critico_pendente(mock_get_llm):
     """Human-in-the-Loop: chamado crítico retorna pending_human_approval."""
+    # Mock do LLM para retornar uma resposta crítica
+    mock_llm = MagicMock()
+    mock_response = TicketOutput(
+        category="infraestrutura",
+        severity="crítica",
+        summary="Banco de dados offline",
+        suggested_action="Restaurar BD de backup",
+        requires_human=True
+    )
+    mock_llm.with_structured_output.return_value.invoke.return_value = mock_response
+    mock_get_llm.return_value = mock_llm
+
     client = TestClient(app)
     response = client.post(
         "/triagem",
@@ -98,8 +127,21 @@ def test_chamado_critico_pendente():
     assert "thread_id" in result
 
 
-def test_aprovacao_chamado_critico():
+@patch("src.graph.get_llm")
+def test_aprovacao_chamado_critico(mock_get_llm):
     """Aprovação: crítico com aprovação retorna completed."""
+    # Mock do LLM para retornar uma resposta crítica
+    mock_llm = MagicMock()
+    mock_response = TicketOutput(
+        category="infraestrutura",
+        severity="crítica",
+        summary="Falha crítica de BD",
+        suggested_action="Executar plano de recuperação",
+        requires_human=True
+    )
+    mock_llm.with_structured_output.return_value.invoke.return_value = mock_response
+    mock_get_llm.return_value = mock_llm
+
     client = TestClient(app)
 
     # Criar chamado crítico
@@ -124,8 +166,21 @@ def test_aprovacao_chamado_critico():
     assert result["response"]["requires_human"] is True
 
 
-def test_rejeicao_chamado_critico():
+@patch("src.graph.get_llm")
+def test_rejeicao_chamado_critico(mock_get_llm):
     """Rejeição: crítico rejeitado retorna rejected."""
+    # Mock do LLM para retornar uma resposta crítica
+    mock_llm = MagicMock()
+    mock_response = TicketOutput(
+        category="infraestrutura",
+        severity="crítica",
+        summary="Falha crítica de infra",
+        suggested_action="Restaurar servidor",
+        requires_human=True
+    )
+    mock_llm.with_structured_output.return_value.invoke.return_value = mock_response
+    mock_get_llm.return_value = mock_llm
+
     client = TestClient(app)
 
     # Criar chamado crítico
@@ -147,3 +202,4 @@ def test_rejeicao_chamado_critico():
     assert response.status_code == 200
     result = response.json()
     assert result["status"] == "rejected"
+
