@@ -1,3 +1,4 @@
+import logging
 import re
 import uuid
 from datetime import datetime, timezone
@@ -7,6 +8,8 @@ from pydantic import BaseModel, Field, model_validator
 
 from src.graph import get_graph
 from src.history import append_history, get_ticket
+
+logger = logging.getLogger("TriagemAgente")
 
 app = FastAPI(
     title="Agente de Triagem API",
@@ -91,9 +94,11 @@ def iniciar_triagem(request: ChamadoRequest):
     try:
         for _ in graph.stream(initial_state, config=config, stream_mode="values"):
             pass
-    except Exception:
+    except (KeyboardInterrupt, SystemExit):
+        raise
+    except Exception as e:  # noqa: BLE001
         # Se houver interrupt (aguardando aprovação), é esperado
-        pass
+        logger.debug(f"Interrupção esperada no workflow: {e}")
 
     state_snapshot = graph.get_state(config)
     final_state = state_snapshot.values
