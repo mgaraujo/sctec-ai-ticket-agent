@@ -20,7 +20,10 @@ def run_scenario(title: str, description: str, thread_id: str):
         if "risk_level" in event and not "context" in event and not "tool_output" in event:
             print(f"--> Risco classificado: {event['risk_level']}")
     
-    # Verifica se o fluxo foi interrompido (Human-in-the-loop)
+    # Verifica o estado final (não apenas se foi pausado)
+    final_state = graph.get_state(config).values
+    
+    # Verifica se o fluxo foi interrompido (Human-in-the-loop aguardando resposta)
     state_snapshot = graph.get_state(config)
     if state_snapshot.next:
         print("\n[ALERTA DE SEGURANÇA] O grafo foi pausado por segurança. Ferramenta crítica pendente: ", state_snapshot.next)
@@ -29,14 +32,28 @@ def run_scenario(title: str, description: str, thread_id: str):
             print("Execução aprovada. Continuando fluxo...")
             for event in graph.stream(None, config=config, stream_mode="values"):
                 pass
+            final_state = graph.get_state(config).values
         else:
             print("Execução rejeitada. Fluxo abortado.")
-            return
-
-    # Pega o estado final
-    final_state = graph.get_state(config).values
+            final_state = graph.get_state(config).values
+    
+    # Pega o estado final e verifica o status
+    print(f"\n[DEBUG] Estado final do grafo: status={final_state.get('status')}, human_approved={final_state.get('human_approved')}")
+    
     if final_state.get("error"):
         print("\n[FALHA] O fluxo encontrou um erro:", final_state["error"])
+    elif final_state.get("status") == "waiting_human_action":
+        print("\n[STATUS] Chamado crítico aguardando ação humana (aprovação rejeitada ou pendente)")
+        print(f"  Resposta Estruturada:")
+        if final_state.get("structured_response"):
+            resp = final_state["structured_response"]
+            print(f"    Categoria: {resp.category}")
+            print(f"    Severidade: {resp.severity}")
+            print(f"    Resumo: {resp.summary}")
+            print(f"    Ação Sugerida: {resp.suggested_action}")
+            print(f"    Precisa de Humano?: {resp.requires_human}")
+        else:
+            print("    (Aguardando interação humana)")
     elif final_state.get("structured_response"):
         resp = final_state["structured_response"]
         print("\n[RESULTADO] Resposta Estruturada:")
@@ -45,6 +62,9 @@ def run_scenario(title: str, description: str, thread_id: str):
         print(f"  Resumo: {resp.summary}")
         print(f"  Ação Sugerida: {resp.suggested_action}")
         print(f"  Precisa de Humano?: {resp.requires_human}")
+    else:
+        print("\n[STATUS] Estado final não reconhecido")
+        print(f"  {final_state}")
 
 if __name__ == "__main__":
     logging.getLogger("TriagemAgente").setLevel(logging.WARNING) # Suprime logs verbosos para a CLI

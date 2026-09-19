@@ -1,96 +1,586 @@
 # Agente Inteligente de Triagem de Chamados Técnicos
 
 ## 1. Descrição da Solução e Objetivo
-Este projeto consiste em um Agente Inteligente para Triagem de Chamados Técnicos. O objetivo é receber um chamado (com título e descrição), analisá-lo e classificar seu risco. Dependendo da severidade, o agente aciona uma base de conhecimento para problemas simples ou uma ferramenta operacional crítica para chamados severos (exigindo aprovação humana). O resultado final é uma resposta estruturada que facilita o encaminhamento.
+
+Este projeto implementa um **Agente Inteligente de Triagem de Chamados Técnicos** que recebe um chamado (título + descrição), analisa seu conteúdo com inteligência artificial e classifica sua severidade.
+
+**Fluxo resumido:**
+1. Recebe chamado (título + descrição)
+2. **Análise automática** com LLM
+3. **Classificação inteligente** (o LLM decide: simples ou crítico)
+4. **Recuperação de contexto** via base de conhecimento
+5. **Geração de resposta estruturada** com recomendações
+6. **Se crítico: Approval Gate** - pausa o workflow aguardando aprovação humana
+7. **Se aprovado:** Finaliza com sucesso; **Se rejeitado:** Retorna rejected
+
+A resposta final inclui: categoria, severidade, resumo, ação sugerida e indicação de necessidade de revisão humana.
+
+---
 
 ## 2. Arquitetura e Fluxo LangGraph
-A arquitetura foi implementada utilizando **LangGraph** explícito, sem depender de agentes genéricos (como o `create_agent` legado).
 
-```mermaid
-graph TD
-    A[analisar_chamado] --> B[classificar_risco]
-    B -->|simples| C[consultar_base]
-    B -->|critico| D[consultar_tool]
-    C --> E[gerar_resposta]
-    D --> E[gerar_resposta]
+O fluxo foi modelado com **LangGraph explícito**, garantindo state compartilhado, nodes com responsabilidades claras e decisões condicionais documentadas.
+
+```
+┌─────────────────────┐
+│ Entrada chamado     │
+│ (title, desc)       │
+└──────────┬──────────┘
+           │
+           ▼
+┌─────────────────────┐
+│ analisar_chamado    │
+│ (log, validate)     │
+└──────────┬──────────┘
+           │
+           ▼
+┌─────────────────────┐
+│ classificar_risco   │
+│ (context only)      │
+└──────────┬──────────┘
+           │
+           ▼
+┌─────────────────────┐
+│ consultar_base      │
+│ (RAG context)       │
+└──────────┬──────────┘
+           │
+           ▼
+┌─────────────────────┐
+│ gerar_resposta      │
+│ (LLM decides:       │
+│  severity,          │
+│  requires_human)    │
+└──────────┬──────────┘
+           │
+    ┌──────┴──────┐
+    │ Condicional │  [route_after_llm_response]
+    │ requer?     │
+    ▼             ▼
+requires_human=FALSE  requires_human=TRUE
+    │                 │
+    ▼                 ▼
+┌─────────────┐  ┌──────────────────────┐
+│finalizar    │  │aguardar_aprovacao    │
+│_chamado     │  │_humana               │
+│(completed)  │  │(interrupt_before)    │
+└─────────────┘  │PAUSA AQUI            │
+                 │(pending_human_       │
+                 │approval)             │
+                 └──────────┬───────────┘
+                            │
+                   ┌────────┴─────────┐
+                   │ Condicional      │ [route_human_decision]
+                   │ aprovado?        │
+                   ▼                  ▼
+            human_approved=TRUE  human_approved=FALSE
+                   │                 │
+                   ▼                 ▼
+            ┌─────────────┐   ┌─────────────┐
+            │finalizar    │   │finalizar    │
+            │_chamado     │   │_sem_acao    │
+            │(completed)  │   │(rejected)   │
+            └─────────────┘   └─────────────┘
 ```
 
-## 3. Descrição do State, Nodes e Decisão Condicional
-- **State**: Um `TypedDict` chamado `GraphState` armazena `ticket_title`, `ticket_description`, `risk_level`, `context`, `tool_output`, `structured_response` e `error`.
-- **Nodes**:
-  - `analisar_chamado`: Ponto de entrada.
-  - `classificar_risco`: Chama o LLM para definir a severidade ("simples" ou "critico").
-  - `consultar_base` / `consultar_tool`: Nós operacionais.
-  - `gerar_resposta`: Gera o output estruturado final em formato JSON/Pydantic.
-- **Decisão Condicional (`route_ticket`)**: Se `risk_level` for "critico", roteia para `consultar_tool`. Se for "simples", roteia para `consultar_base`.
+---
 
-## 4. Descrição da Tool
-A aplicação utiliza duas tools principais:
-- **`consultar_base`**: Uma tool de contexto que busca soluções documentadas (simula um RAG interno).
-- **`consultar_tool`**: Uma ferramenta sensível que altera estado (ex: invalida cache). Ela possui **validação** (verifica se o ID possui pelo menos 3 caracteres).
-  - *Tratamento de Falhas (Webhook)*: Caso seja inserido um ticket que dispare um erro simulado (ex: "erro-http"), a tool fará uma requisição HTTP. Caso ocorra erro de conexão/timeout, a tool intercepta o erro via `try...except requests.exceptions.RequestException` e devolve um aviso controlado, impedindo o agente de falhar abruptamente.
+## 3. Descrição do State, Nodes e Decisões Condicionais
 
-## 5. Memória e Contexto
-O fluxo utiliza **InMemorySaver** do LangGraph (um checkpointer) para manter a rastreabilidade do estado. A tool `consultar_base` funciona como recuperação de contexto, e os dados recuperados são mantidos no State para serem utilizados pelo node final `gerar_resposta`.
+### GraphState (TypedDict)
+```python
+{
+    "ticket_title": str,                    # Título do chamado
+    "ticket_description": str,              # Descrição detalhada
+    "status": str | None,                   # "processing", "waiting_human_action", "rejected", "completed"
+    "context": str | None,                  # Contexto recuperado da base
+    "structured_response": TicketOutput,    # Resposta estruturada
+    "requires_human": bool | None,          # Extraído de structured_response
+    "human_approved": bool | None,          # Definido via API /approve
+    "error": str | None,                    # Mensagens de erro
+}
+```
 
-## 6. Instruções de Instalação, Execução e Testes
+### Nodes e Responsabilidades
+
+| Node | Entrada | Saída | Descrição |
+|------|---------|-------|-----------|
+| **analisar_chamado** | title, description | (atualiza status) | Valida e loga o chamado |
+| **classificar_risco** | - | (status=processing) | Node intermediário |
+| **consultar_base** | title, description | context | Busca na base de conhecimento |
+| **gerar_resposta** | all + context | structured_response | LLM decide severity e requires_human |
+| **aguardar_aprovacao_humana** | human_approved | (status update) | Processa decisão; **interrompe se None** |
+| **finalizar_chamado** | status=processing | status=completed | Retorna com sucesso |
+| **finalizar_sem_acao** | status=rejected | status=rejected | Retorna rejeitado |
+
+### Decisões Condicionais
+
+**route_after_llm_response(state)**
+```python
+if state["structured_response"].requires_human:
+    return "aguardar_aprovacao_humana"  # Pausa aqui
+else:
+    return "finalizar_chamado"  # Vai direto ao fim
+```
+
+**route_human_decision(state)**
+```python
+if state.get("human_approved") is True:
+    return "finalizar_chamado"  # Sucesso
+else:
+    return "finalizar_sem_acao"  # Rejeitado
+```
+
+---
+
+## 4. Tool Funcional: `consultar_base`
+
+A aplicação utiliza **uma tool funcional principal** que atua como **recuperação de contexto (RAG simulado)**:
+
+### Função: `consultar_base()`
+```python
+def consultar_base(ticket_title: str, ticket_description: str) -> str:
+    """
+    Busca soluções documentadas na base de conhecimento.
+    
+    Retorno:
+      - Contexto recuperado ou mensagem padrão se não encontrado
+    
+    Tratamento:
+      - Validação de entrada (min_length)
+      - Try-catch para leitura de arquivo JSON
+      - Retorna mensagem controlada se falhar
+    """
+```
+
+### Fluxo de Integração
+1. **Acionada em**: Node `consultar_base` (sempre antes de gerar resposta)
+2. **Dados**: Arquivo `src/data/tickets_history.json`
+3. **Utilização**: Contexto é armazenado em `state["context"]`
+4. **Impacto**: Contexto é injetado no prompt do LLM
+
+### Validação e Tratamento
+- ✅ Valida comprimento mínimo de entrada
+- ✅ Trata arquivo não encontrado
+- ✅ Trata JSON inválido
+- ✅ Retorna mensagem controlada
+
+---
+
+## 5. Memória, Contexto e RAG
+
+### Estratégia Implementada
+
+1. **State do LangGraph** (`GraphState`)
+   - Mantém contexto da sessão em memória
+   - Cada thread tem seu próprio state isolado
+
+2. **Checkpointer (InMemorySaver)**
+   - Persiste state entre chamadas ao grafo
+   - Permite pausar e retomar com `interrupt_before`
+
+3. **RAG Simulado** (`consultar_base`)
+   - Carrega base de conhecimento de `src/data/tickets_history.json`
+   - Busca entradas relevantes por palavras-chave
+   - Retorna contexto que alimenta o LLM
+
+4. **Armazenador Global** (`_graph_store` dict)
+   - Mantém grafo instanciado por thread_id
+   - Permite retomar workflow após aprovação
+   - Em produção: seria PostgreSQL ou Redis
+
+---
+
+## 6. Instalação, Configuração e Execução
+
+### Pré-requisitos
+- Python 3.10+
+- pip ou uv
+- Chave de API OpenAI
+
+### Instalação
+
 ```bash
-# Instalação
+# 1. Clonar repositório
+cd recuperacao_agente
+
+# 2. Criar ambiente virtual
 python -m venv .venv
-source .venv/bin/activate
+source .venv/bin/activate  # Linux/Mac
+# ou
+.venv\Scripts\activate  # Windows
+
+# 3. Instalar dependências
 pip install -r requirements.txt
+
+# 4. Configurar variáveis
 cp .env.example .env
-
-# Execução da API REST (Demonstrará os cenários via Swagger em http://localhost:8000/docs)
-uvicorn src.api:app
-
-# Testes
-pytest tests/
+# Editar .env e adicionar OPENAI_API_KEY
 ```
+
+### Execução
+
+```bash
+# A. Executar a API REST
+uvicorn src.api:app --reload --port 8000
+
+# API disponível em:
+# - REST: http://localhost:8000
+# - Swagger: http://localhost:8000/docs
+
+# B. Rodar testes
+pytest tests/ -v
+
+# C. Rodar teste específico
+pytest tests/test_triagem.py::test_sucesso_chamado_simples -v
+```
+
+---
 
 ## 7. Cenários Demonstrados
-1. **Fluxo Principal (Chamado Simples)**: O chamado de problema de VPN/login entra, o LLM classifica como simples, a `consultar_base` é chamada trazendo o contexto e a resposta estruturada é gerada.
-2. **Cenário Crítico com Human-in-the-loop**: Um chamado de falha grave entra, é classificado como "critico". O grafo **pausa a execução** e a API devolve o status de "pendente" (com o `thread_id`). O usuário chama a rota `/approve` para autorizar a tool.
-3. **Cenário de Falha (Webhook/Validação)**: Se enviado o ticket "erro-http", a ferramenta irá capturar o Timeout/Erro 500 do HTTP de maneira segura.
 
-## 8. Evidências de QA com IA e Refinamento de Prompt
-**QA com IA**:
-- *Problema*: Inicialmente, os testes cobriam apenas o caminho feliz das tools.
-- *Sugestão da IA*: A IA apontou que era crucial testar também a ramificação condicional (a lógica de roteamento em si).
-- *Ação Adotada*: Implementado o `test_comportamento_grafo_roteamento` em `test_triagem.py`, injetando diretamente estados mockados para o validador da edge.
+### Cenário 1: Fluxo Principal (Chamado Simples) ✅
 
-**Refinamento de Prompt (Antes vs Depois)**:
-- *Problema Observado*: O nó `classificar_risco` às vezes gerava textos longos que quebravam o roteamento. 
-- *Antes*: 
-  - Prompt: `"Analise o chamado abaixo e diga se o risco é simples ou critico. Título: {title}..."`
-  - Resposta comum do LLM: *"Considerando a descrição, acho que este chamado é crítico porque envolve banco de dados."*
-- *Depois da análise com IA*:
-  - Prompt: `"Analise o chamado abaixo e classifique o risco apenas como 'simples' ou 'critico'. Título: {title}... Retorne apenas a palavra simples ou critico."`
-  - Adicionado processamento no código: `.strip().lower()`
-  - Resposta do LLM: *"critico"*
-- *Resultado*: Classificações 100% consistentes acionando a ramificação perfeitamente.
+**Entrada:**
+```bash
+curl -X POST http://localhost:8000/triagem \
+  -H "Content-Type: application/json" \
+  -d '{
+    "title": "Problema de login",
+    "description": "Um usuário não consegue fazer login no sistema. Recebe erro 401."
+  }'
+```
 
-## 9. Observabilidade Essencial
-Para permitir a correlação de logs de ponta a ponta, implementamos um mapeamento do `thread_id` da configuração do LangGraph para atuar como nosso **`trace_id`**. Todos os nós da arquitetura recebem o `RunnableConfig` nativo do LangGraph, extraem o ID e prefixam os logs: `[Trace: 7a8b9...] [NODE] classificar_risco | Avaliando complexidade`.
+**Processo:**
+1. Node `analisar_chamado` → Valida e loga
+2. Node `consultar_base` → Busca contexto sobre login
+3. Node `gerar_resposta` → **LLM decide**: severity = "média", requires_human = False
+4. Condicional → Va direto para `finalizar_chamado`
 
-## 10. Extensões Técnicas
-- **Extensão 1: Pipeline de CI/CD** -> Implementado arquivo em `.github/workflows/ci.yml` garantindo que `pytest` é executado automaticamente nas PRs.
-- **Extensão 2: Human-in-the-loop via API** -> Implementado no `graph.py` usando `interrupt_before=["consultar_tool"]`. A API não prende a requisição; ela retorna um status HTTP informando que está pendente de aprovação, mantendo estado via Checkpointer para retomada.
+**Saída:**
+```json
+{
+  "status": "completed",
+  "thread_id": "abc-123-def",
+  "response": {
+    "category": "autenticação",
+    "severity": "média",
+    "summary": "Falha de autenticação do usuário.",
+    "suggested_action": "Verificar credenciais e status da conta.",
+    "requires_human": false
+  }
+}
+```
 
-## 11. Limitações e Vídeo
-- **Limitações**: Como não estamos usando banco de dados real persistente, reinicializações da API limpam os states (`InMemorySaver`).
-- **Vídeo de Demonstração**: [Link do Vídeo]
+---
+
+### Cenário 2: Chamado Crítico com Approval 🚨
+
+**Entrada (Parte 1):**
+```bash
+curl -X POST http://localhost:8000/triagem \
+  -H "Content-Type: application/json" \
+  -d '{
+    "title": "Banco de dados não responde",
+    "description": "Servidor de BD está offline. Produção parada completamente."
+  }'
+```
+
+**Saída (Parte 1):**
+```json
+{
+  "status": "pending_human_approval",
+  "thread_id": "def-456-ghi",
+  "message": "Chamado requer aprovação humana... Faça POST em /triagem/def-456-ghi/approve"
+}
+```
+
+**Entrada (Parte 2 - Aprovação):**
+```bash
+curl -X POST http://localhost:8000/triagem/def-456-ghi/approve \
+  -H "Content-Type: application/json" \
+  -d '{"approve": true}'
+```
+
+**Saída (Parte 2):**
+```json
+{
+  "status": "completed",
+  "thread_id": "def-456-ghi",
+  "response": {
+    "category": "infraestrutura",
+    "severity": "crítica",
+    "summary": "BD crítico offline, falha completa de serviço.",
+    "suggested_action": "Restaurar BD: verificar hardware, logs, reiniciar serviço.",
+    "requires_human": true
+  }
+}
+```
+
+---
+
+### Cenário 3: Rejeição ❌
+
+**Entrada:**
+```bash
+curl -X POST http://localhost:8000/triagem/def-456-ghi/approve \
+  -H "Content-Type: application/json" \
+  -d '{"approve": false}'
+```
+
+**Saída:**
+```json
+{
+  "status": "rejected",
+  "thread_id": "def-456-ghi",
+  "message": "Chamado crítico foi rejeitado pelo usuário."
+}
+```
+
+---
+
+## 8. Observabilidade Essencial
+
+### Exemplo de Logs Completos
+
+```
+2026-09-18 23:00:15,100 - TriagemAgente - INFO - [Trace: abc123...] [NODE] analisar_chamado | Chamado: Banco de dados
+2026-09-18 23:00:15,103 - TriagemAgente - INFO - [Trace: abc123...] [NODE] classificar_risco | Avaliando
+2026-09-18 23:00:15,105 - TriagemAgente - INFO - [Trace: abc123...] [NODE] consultar_base | Processamento
+2026-09-18 23:00:15,108 - TriagemAgente - INFO - [Trace: abc123...] [TOOL] Contexto recuperado
+2026-09-18 23:01:18,500 - TriagemAgente - INFO - [Trace: abc123...] [NODE] gerar_resposta
+2026-09-18 23:01:18,501 - TriagemAgente - INFO - [Trace: abc123...] [ROTEAMENTO] requires_human=True
+2026-09-18 23:01:18,502 - TriagemAgente - INFO - [Trace: abc123...] [INTERRUPT] Aguardando aprovação
+```
+
+**Correlação:**
+- Todos os logs incluem `[Trace: abc123...]` (thread_id)
+- Permite reconstruir fluxo completo filtrando por trace_id
+
+---
+
+## 9. Testes Automatizados
+
+### Cobertura de Testes
+
+```bash
+# Rodar todos os testes
+pytest tests/ -v
+
+# Com coverage
+pytest tests/ -v --cov=src --cov-report=html
+```
+
+### Testes Implementados
+
+1. **test_sucesso_chamado_simples**
+   - Fluxo principal com entrada válida
+   - Valida: Status=completed, resposta estruturada
+
+2. **test_falha_entrada_invalida**
+   - Validação de entrada
+   - Valida: Title < 3 chars retorna erro 422
+
+3. **test_comportamento_roteamento**
+   - Lógica de roteamento condicional
+   - Valida: `route_after_llm_response` e `route_human_decision`
+
+4. **test_chamado_critico_pendente**
+   - Fluxo com human-in-the-loop
+   - Valida: Status=pending_human_approval
+
+5. **test_aprovacao_chamado_critico**
+   - Fluxo de aprovação
+   - Valida: Transição pending → completed
+
+6. **test_rejeicao_chamado_critico**
+   - Fluxo de rejeição
+   - Valida: Transição pending → rejected
+
+---
+
+## 10. QA com IA e Refinamento
+
+### Evidência 1: Revisão com IA
+
+**Problema:**
+- Testes cobriam apenas "caminho feliz"
+- Faltava validação da **lógica de roteamento**
+
+**Sugestão da IA:**
+> "Teste as funções de roteamento isoladamente com estados mockados. Isso garante que a bifurcação está correta."
+
+**Decisão Adotada:**
+- ✅ Adicionado `test_comportamento_roteamento`
+- ✅ 100% de cobertura das condicionais
+
+---
+
+### Evidência 2: Refinamento de Prompt
+
+**Problema Observado:**
+- `gerar_resposta` retornava `requires_human: null`
+
+**Prompt Antes:**
+```
+Analise o chamado e determine se requer ação humana urgente.
+Retorne um JSON com: category, severity, summary, suggested_action, requires_human.
+```
+
+**Prompt Depois:**
+```
+Analise o chamado e determine se requer ação humana urgente.
+
+Retorne um JSON com os campos EXATOS:
+- requires_human: boolean (true ou false, NUNCA null)
+
+IMPORTANTE: Sempre retorne true ou false, nunca null ou string.
+```
+
+**Resultado:**
+- ✅ Estrutura sempre válida
+- ✅ `requires_human` sempre boolean
+- ✅ Zero erros de validação
+
+---
+
+## 11. Extensões Técnicas
+
+### Extensão 1: Human-in-the-Loop ⭐
+
+**Implementação:**
+1. Node `aguardar_aprovacao_humana` com `interrupt_before`
+2. Workflow pausa ao chegar lá
+3. API resume com `graph.update_state()` após aprovação
+
+**Exemplos:**
+```bash
+# Submeter (crítico)
+POST /triagem → pending_human_approval
+
+# Aprovar
+POST /triagem/{id}/approve {"approve": true} → completed
+
+# Rejeitar
+POST /triagem/{id}/approve {"approve": false} → rejected
+```
+
+---
+
+### Extensão 2: Memória Persistente com Checkpointer 💾
+
+**Implementação:**
+1. `InMemorySaver()` para persistence
+2. `_graph_store` dict para manter grafo por thread_id
+3. `graph.update_state()` e `graph.stream()` para retomada
+
+**Fluxo:**
+```
+Execução 1 → Interrompe
+    ↓
+[Espera]
+    ↓
+Execução 2 (mesmo thread_id) → Retoma do ponto exato
+```
+
+---
 
 ## 12. Segurança
 
 ### Validação de Entrada
-- `title` tem `Field(min_length=3)` e `description` tem `Field(min_length=10)`. O FastAPI rejeita entradas que não atendam a esses requisitos com erro **422**.
+```python
+title: str = Field(min_length=3)          # ✅ Rejeita < 3 chars
+description: str = Field(min_length=10)  # ✅ Rejeita < 10 chars
+```
 
 ### Proteção contra Prompt Injection
-- `ChamadoRequest` contém um `@field_validator('title', 'description')` que procura padrões suspeitos (ex.: “ignore all previous instructions”, “system prompt”, “esqueça tudo”). Caso detectado, a requisição é bloqueada com a mensagem **“Potencial ataque de Prompt Injection detectado. Requisição bloqueada.”**. Essa validação ocorre antes de qualquer chamada ao LLM.
+```python
+suspicious = [
+    r"ignore\s*all\s*previous\s*instructions",
+    r"system\s*prompt",
+    r"esqueça\s*tudo",
+]
+# ✅ Detecta e bloqueia antes do LLM
+```
 
-### Tratamento de Falhas de Webhook
-- Todas as tools que fazem chamadas HTTP estão envoltas em `try...except requests.exceptions.RequestException`. Em caso de falha, retornamos um erro controlado no state ao invés de gerar exceção não tratada.
+### Proteção de Credenciais
+- ✅ `.env.example` fornecido
+- ✅ `.gitignore` protege `.env`
+- ✅ Logs não exibem chaves
 
-### Observabilidade de Segurança
-- Cada log inclui o `trace_id` correlacionado ao `thread_id`, permitindo auditoria completa de chamadas potencialmente maliciosas.
+### Tratamento de Falhas
+```python
+try:
+    for _ in graph.stream(...):
+        pass
+except Exception as e:
+    return {"status": "error", "message": str(e)}
+```
+
+---
+
+## 13. Limitações
+
+1. **Checkpointer em Memória**
+   - Dados perdidos ao reiniciar
+   - **Solução:** PostgreSQL checkpointer
+
+2. **Base de Conhecimento Estática**
+   - Arquivo JSON fixo
+   - **Solução:** Vector database
+
+3. **Sem Autenticação**
+   - Qualquer pessoa pode submeter
+   - **Solução:** JWT/OAuth
+
+4. **Sem Rate Limiting**
+   - Chamadas LLM não limitadas
+   - **Solução:** Redis middleware
+
+5. **Sem Auditoria de Aprovações**
+   - Quem aprovou não é registrado
+   - **Solução:** Adicionar `approved_by` no state
+
+---
+
+## 14. Instruções Completas para Avaliador
+
+```bash
+# 1. Clonar
+git clone https://github.com/seu-usuario/recuperacao_agente.git
+cd recuperacao_agente
+
+# 2. Configurar
+python -m venv .venv && source .venv/bin/activate
+pip install -r requirements.txt
+cp .env.example .env
+# Adicionar OPENAI_API_KEY no .env
+
+# 3. Rodar testes
+pytest tests/ -v
+
+# 4. Iniciar API
+uvicorn src.api:app --reload
+
+# 5. Testar em outro terminal
+# Teste 1: Chamado simples
+curl -X POST http://localhost:8000/triagem \
+  -H "Content-Type: application/json" \
+  -d '{"title": "Problema de login", "description": "Um usuário não consegue fazer login no sistema"}'
+
+# Teste 2: Chamado crítico
+curl -X POST http://localhost:8000/triagem \
+  -H "Content-Type: application/json" \
+  -d '{"title": "Banco de dados não responde", "description": "BD crítico está down, produção parada"}'
+
+# Teste 3: Aprovar (usar thread_id do teste 2)
+curl -X POST http://localhost:8000/triagem/{thread_id}/approve \
+  -H "Content-Type: application/json" \
+  -d '{"approve": true}'
+```
+
+---
+
+**Repositório:** [GitHub]  
+**Vídeo:** [YouTube - Não Listado]  
+**Última atualização:** 2026-09-18

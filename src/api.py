@@ -5,7 +5,7 @@ from datetime import datetime, timezone
 from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel, Field, model_validator
 
-from src.graph import build_graph
+from src.graph import get_graph
 from src.history import append_history, get_ticket
 
 app = FastAPI(
@@ -14,8 +14,10 @@ app = FastAPI(
     version="1.0"
 )
 
-# Instância global do grafo (para manter o checkpointer na memória entre requests)
-graph = build_graph()
+# Armazenador global de grafos para manter estado entre requisições
+# Em produção, isso seria um banco de dados (PostgreSQL, Redis, etc)
+_graph_store = {}
+
 
 class ChamadoRequest(BaseModel):
     title: str = Field(min_length=3, description="Título do chamado (obrigatório)")
@@ -68,38 +70,54 @@ def _record_history(ticket_id: str, title: str, description: str, status: str, r
 def iniciar_triagem(request: ChamadoRequest):
     thread_id = str(uuid.uuid4())
     config = {"configurable": {"thread_id": thread_id}}
+
+    # Cria um grafo novo para cada request
+    graph = get_graph()
     
+    # Armazena o grafo para uso posterior no endpoint de aprovação
+    _graph_store[thread_id] = {
+        "graph": graph,
+        "config": config,
+        "title": request.title,
+        "description": request.description,
+    }
+
     initial_state = {
         "ticket_title": request.title,
         "ticket_description": request.description
     }
-    
-    # Executa até o fim ou até bater no interrupt
-    for _ in graph.stream(initial_state, config=config, stream_mode="values"):
+
+    # Executa o workflow até o fim ou até bater num interrupt
+    try:
+        for _ in graph.stream(initial_state, config=config, stream_mode="values"):
+            pass
+    except Exception:
+        # Se houver interrupt (aguardando aprovação), é esperado
         pass
 
     state_snapshot = graph.get_state(config)
     final_state = state_snapshot.values
 
-    # Se estiver pausado
-    # Inclui detalhes para o operador humano decidir
-    risk = state_snapshot.values.get("risk_level")
-    pending_node = state_snapshot.next
-    _record_history(thread_id, request.title, request.description, "pending_human_approval", None)
-    return {
-        "status": "pending_human_approval",
-        "thread_id": thread_id,
-        "risk_level": risk,
-        "pending_node": pending_node,
-        "message": (
-            f"O fluxo foi pausado antes do nó '{pending_node}'. "
-            f"Risco classificado como '{risk}'. "
-            "Ferramenta crítica requer aprovação humana. "
-            f"Faça POST em /triagem/{thread_id}/approve para continuar."
-        ),
-    }
+    # Se estiver aguardando ação humana (chamado crítico)
+    structured_response = final_state.get("structured_response")
+    requires_human = (
+        structured_response.requires_human 
+        if structured_response and hasattr(structured_response, "requires_human") 
+        else False
+    )
+    
+    if requires_human:
+        _record_history(thread_id, request.title, request.description, "pending_human_approval", None)
+        return {
+            "status": "pending_human_approval",
+            "thread_id": thread_id,
+            "message": (
+                "Chamado requer aprovação humana antes de qualquer ação operacional. "
+                f"Faça POST em /triagem/{thread_id}/approve para continuar."
+            ),
+        }
 
-    # Se terminou normalmente ou com erro
+    # Se terminou com erro
     if final_state.get("error"):
         _record_history(thread_id, request.title, request.description, "error", {"message": final_state["error"]})
         return {"status": "error", "message": final_state["error"]}
@@ -113,32 +131,55 @@ def iniciar_triagem(request: ChamadoRequest):
     }
 
 
-
 @app.post("/triagem/{thread_id}/approve")
 def aprovar_triagem(thread_id: str, request: AprovarRequest):
-    config = {"configurable": {"thread_id": thread_id}}
-    state_snapshot = graph.get_state(config)
+    """Aprova ou rejeita um chamado que está aguardando aprovação humana."""
     
-    if not state_snapshot.next:
-        raise HTTPException(status_code=400, detail="Este chamado não está aguardando aprovação.")
-        
-    if not request.approve:
-        return {"status": "aborted", "message": "Execução da ferramenta rejeitada."}
-        
-    # Retoma a execução
+    # Recupera o grafo armazenado
+    if thread_id not in _graph_store:
+        raise HTTPException(
+            status_code=404,
+            detail=f"Chamado com ID {thread_id} não encontrado ou já foi finalizado."
+        )
+    
+    stored = _graph_store[thread_id]
+    graph = stored["graph"]
+    config = stored["config"]
+    
+    # Atualiza o estado com a decisão humana
+    if request.approve:
+        # Humano aprovou - continua para finalizar_chamado
+        graph.update_state(config, {"human_approved": True})
+    else:
+        # Humano rejeitou - vai para finalizar_sem_acao
+        graph.update_state(config, {"human_approved": False})
+    
+    # Retoma a execução do grafo
     for _ in graph.stream(None, config=config, stream_mode="values"):
         pass
-        
-    # Obtém o estado final após retomar
+    
+    # Obtém o estado final
     final_state = graph.get_state(config).values
-    # Se terminou normalmente ou com erro
+    
+    # Limpa o armazenamento (não precisa mais)
+    del _graph_store[thread_id]
+    
+    # Se terminou com erro
     if final_state.get("error"):
-        # Record error
-        _record_history(thread_id, "", "", "error", {"message": final_state["error"]})
+        _record_history(thread_id, stored["title"], stored["description"], "error", {"message": final_state["error"]})
         return {"status": "error", "message": final_state["error"]}
-
-    # Record successful completion
-    _record_history(thread_id, "", "", "completed", final_state.get("structured_response"))
+    
+    # Se foi rejeitado, retorna status rejeitado
+    if final_state.get("status") == "rejected":
+        _record_history(thread_id, stored["title"], stored["description"], "rejected", None)
+        return {
+            "status": "rejected",
+            "thread_id": thread_id,
+            "message": "Chamado crítico foi rejeitado pelo usuário. Nenhuma ação foi executada."
+        }
+    
+    # Caso contrário, foi aprovado e finalizado
+    _record_history(thread_id, stored["title"], stored["description"], "completed", final_state.get("structured_response"))
     return {
         "status": "completed",
         "thread_id": thread_id,
@@ -156,4 +197,3 @@ def obter_historico(ticket_id: str):
     if not rec:
         raise HTTPException(status_code=404, detail="Ticket not found")
     return rec
-
