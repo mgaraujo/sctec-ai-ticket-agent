@@ -776,5 +776,185 @@
       "suggested_action": "Iniciar a investigação imediata do servidor de banco de dados e restaurar a operação o mais rápido possível.",
       "requires_human": true
     }
+  },
+  {
+    "ticket_id": "4436e381-65fc-44ff-a08f-c8019c627de2",
+    "title": "Problema de login",
+    "description": "Um usuário não consegue fazer login no sistema",
+    "status": "completed",
+    "timestamp": "2026-09-19T17:10:58.104883+00:00Z",
+    "response": {
+      "category": "autenticação",
+      "severity": "média",
+      "summary": "Um usuário não consegue fazer login no sistema.",
+      "suggested_action": "Instruir o usuário a limpar o cache ou redefinir a senha.",
+      "requires_human": false
+    }
+  },
+  {
+    "ticket_id": "bf2d752c-af95-4500-b4b8-6e02c5a2b01e",
+    "title": "Banco de dados não responde",
+    "description": "BD crítico está offline, produção parada",
+    "status": "pending_human_approval",
+    "timestamp": "2026-09-19T17:11:00.216355+00:00Z",
+    "response": null
+  },
+  {
+    "ticket_id": "bc2cb34c-ef1e-4bd2-ae04-6bf0ce496654",
+    "title": "Falha crítica de BD",
+    "description": "BD está completamente offline",
+    "status": "pending_human_approval",
+    "timestamp": "2026-09-19T17:11:01.264789+00:00Z",
+    "response": null
+  },
+  {
+    "ticket_id": "bc2cb34c-ef1e-4bd2-ae04-6bf0ce496654",
+    "title": "Falha crítica de BD",
+    "description": "BD está completamente offline",
+    "status": "completed",
+    "timestamp": "2026-09-19T17:11:01.291815+00:00Z",
+    "response": {
+      "category": "infraestrutura",
+      "severity": "crítica",
+      "summary": "Banco de dados está completamente offline, impactando a operação.",
+      "suggested_action": "Acionar a equipe de infraestrutura para investigar e restaurar o banco de dados imediatamente.",
+      "requires_human": true
+    }
+  },
+  {
+    "ticket_id": "7efc3fa2-b895-43be-9ce8-b50a5d0dbb40",
+    "title": "Infra crítica falha",
+    "description": "Servidor de produção está fora",
+    "status": "pending_human_approval",
+    "timestamp": "2026-09-19T17:11:02.938159+00:00Z",
+    "response": null
+  },
+  {
+    "ticket_id": "7efc3fa2-b895-43be-9ce8-b50a5d0dbb40",
+    "title": "Infra crítica falha",
+    "description": "Servidor de produção está fora",
+    "status": "rejected",
+    "timestamp": "2026-09-19T17:11:02.958437+00:00Z",
+    "response": null
+  },
+  {
+    "ticket_id": "4ab45b21-e5ca-4809-b8f1-f19fca750b8a",
+    "title": "Problema de login",
+    "description": "Um usuário não consegue fazer login no sistema",
+    "status": "completed",
+    "timestamp": "2026-09-19T17:11:26.172951+00:00Z",
+    "response": {
+      "category": "autenticação",
+      "severity": "média",
+      "summary": "Um usuário não consegue fazer login no sistema.",
+      "suggested_action": "Instruir o usuário a limpar o cache ou redefinir a senha.",
+      "requires_human": false
+    }
+  },
+  {
+    "ticket_id": "1a0dd167-3ac7-4a36-bc05-6fcd1d448a8c",
+    "title": "Banco de dados não responde",
+    "description": "BD crítico está offline, produção parada",
+    "status": "pending_human_approval",
+    "timestamp": "2026-09-19T17:11:27.172451+00:00Z",
+    "response": null
+  },
+  {
+    "ticket_id": "05604e14-ef5e-4920-b3f1-f91131a7be21",
+    "title": "Falha crítica de BD",
+    "description": "BD está completamente offline",
+    "status": "pending_human_approval",
+    "timestamp": "2026-09-19T17:11:28.163083+00:00Z",
+    "response": null
+  },
+  {
+    "ticket_id": "05604e14-ef5e-4920-b3f1-f91131a7be21",
+    "title": "Falha crítica de BD",
+    "description": "BD está completamente offline",
+    "status": "completed",
+    "timestamp": "2026-09-19T17:11:28.189742+00:00Z",
+    "response": {
+      "category": "infraestrutura",
+      "severity": "crítica",
+      "summary": "Banco de dados está completamente offline, impactando a operação.",
+      "suggested_action": "Iniciar a recuperação do banco de dados imediatamente e verificar logs para identificar a causa da falha.",
+      "requires_human": true
+    }
+  },
+  {
+    "ticket_id": "f2e042c9-6f67-406e-b14a-c08534399769",
+    "title": "Infra crítica falha",
+    "description": "Servidor de produção está fora",
+    "status": "pending_human_approval",
+    "timestamp": "2026-09-19T17:11:29.173357+00:00Z",
+    "response": null
+  },
+  {
+    "ticket_id": "f2e042c9-6f67-406e-b14a-c08534399769",
+    "title": "Infra crítica falha",
+    "description": "Servidor de produção está fora",
+    "status": "rejected",
+    "timestamp": "2026-09-19T17:11:29.190928+00:00Z",
+    "response": null
+  },
+  {
+    "ticket_id": "abf1fec8-0aca-4a84-a217-6d2ca8fa1cb7",
+    "title": "Problema de login",
+    "description": "Um usuário não consegue fazer login no sistema",
+    "status": "completed",
+    "timestamp": "2026-09-19T17:11:59.792015+00:00Z",
+    "response": {
+      "category": "autenticação",
+      "severity": "média",
+      "summary": "Um usuário não consegue fazer login no sistema.",
+      "suggested_action": "Instruir o usuário a limpar o cache ou redefinir a senha.",
+      "requires_human": false
+    }
+  },
+  {
+    "ticket_id": "f951409d-8f7d-40fe-b9c5-5095a5bf8240",
+    "title": "Banco de dados não responde",
+    "description": "BD crítico está offline, produção parada",
+    "status": "pending_human_approval",
+    "timestamp": "2026-09-19T17:12:01.347216+00:00Z",
+    "response": null
+  },
+  {
+    "ticket_id": "cdf36b0e-5568-48d3-b79b-d5df6a288a26",
+    "title": "Falha crítica de BD",
+    "description": "BD está completamente offline",
+    "status": "pending_human_approval",
+    "timestamp": "2026-09-19T17:12:02.511413+00:00Z",
+    "response": null
+  },
+  {
+    "ticket_id": "cdf36b0e-5568-48d3-b79b-d5df6a288a26",
+    "title": "Falha crítica de BD",
+    "description": "BD está completamente offline",
+    "status": "completed",
+    "timestamp": "2026-09-19T17:12:02.537832+00:00Z",
+    "response": {
+      "category": "infraestrutura",
+      "severity": "crítica",
+      "summary": "Banco de dados está completamente offline, impactando a operação.",
+      "suggested_action": "Acionar a equipe de infraestrutura para investigar e restaurar o banco de dados imediatamente.",
+      "requires_human": true
+    }
+  },
+  {
+    "ticket_id": "f212e56f-6f39-4062-9098-7d8e65defe69",
+    "title": "Infra crítica falha",
+    "description": "Servidor de produção está fora",
+    "status": "pending_human_approval",
+    "timestamp": "2026-09-19T17:12:03.618319+00:00Z",
+    "response": null
+  },
+  {
+    "ticket_id": "f212e56f-6f39-4062-9098-7d8e65defe69",
+    "title": "Infra crítica falha",
+    "description": "Servidor de produção está fora",
+    "status": "rejected",
+    "timestamp": "2026-09-19T17:12:03.636395+00:00Z",
+    "response": null
   }
 ]
