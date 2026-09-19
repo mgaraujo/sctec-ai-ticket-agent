@@ -329,8 +329,18 @@ Dados do chamado:
         )
 
     try:
+        # Log do prompt completo antes de enviar ao LLM
+        logger.info(
+            f"[Trace: {trace_id}] "
+            f"[PROMPT ENVIADO AO LLM]\n{prompt}"
+        )
 
         response = structured_llm.invoke(prompt)
+
+        logger.info(
+            f"[Trace: {trace_id}] "
+            f"[RESPOSTA DO LLM] {response}"
+        )
 
         return {
             "structured_response": response

@@ -726,5 +726,55 @@
     "status": "pending_human_approval",
     "timestamp": "2026-09-19T16:56:23.822189+00:00Z",
     "response": null
+  },
+  {
+    "ticket_id": "56b796c7-bb05-405f-94d5-08686c8df5f3",
+    "title": "Usuário não consegue fazer login",
+    "description": "Um usuário está recebendo erro 401 ao tentar fazer login.",
+    "status": "completed",
+    "timestamp": "2026-09-19T16:58:49.401985+00:00Z",
+    "response": {
+      "category": "autenticação",
+      "severity": "média",
+      "summary": "Usuário está recebendo erro 401 ao tentar fazer login.",
+      "suggested_action": "Instruir o usuário a limpar o cache ou redefinir a senha.",
+      "requires_human": false
+    }
+  },
+  {
+    "ticket_id": "c2d39f4e-4a84-4772-ae29-6bd1f432bf4a",
+    "title": "Usuário não consegue fazer login",
+    "description": "Um usuário está recebendo erro 401 ao tentar fazer login. Ele confirma que a senha está correta.",
+    "status": "completed",
+    "timestamp": "2026-09-19T16:59:34.042410+00:00Z",
+    "response": {
+      "category": "autenticação",
+      "severity": "média",
+      "summary": "Usuário está recebendo erro 401 ao tentar fazer login, mesmo confirmando que a senha está correta.",
+      "suggested_action": "Instruir o usuário a limpar o cache do navegador ou redefinir a senha.",
+      "requires_human": false
+    }
+  },
+  {
+    "ticket_id": "3eecab6d-1f87-47d1-9bff-f400651610f3",
+    "title": "Banco de dados não responde",
+    "description": "O servidor de banco de dados crítico está completamente offline. A produção está parada. Todos os usuários estão recebendo erro de timeout.",
+    "status": "pending_human_approval",
+    "timestamp": "2026-09-19T17:01:55.935062+00:00Z",
+    "response": null
+  },
+  {
+    "ticket_id": "3eecab6d-1f87-47d1-9bff-f400651610f3",
+    "title": "Banco de dados não responde",
+    "description": "O servidor de banco de dados crítico está completamente offline. A produção está parada. Todos os usuários estão recebendo erro de timeout.",
+    "status": "completed",
+    "timestamp": "2026-09-19T17:02:27.598842+00:00Z",
+    "response": {
+      "category": "infraestrutura",
+      "severity": "crítica",
+      "summary": "O servidor de banco de dados crítico está completamente offline, causando interrupção total na produção.",
+      "suggested_action": "Iniciar a investigação imediata do servidor de banco de dados e restaurar a operação o mais rápido possível.",
+      "requires_human": true
+    }
   }
 ]
