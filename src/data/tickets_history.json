@@ -1196,5 +1196,65 @@
     "status": "rejected",
     "timestamp": "2026-09-19T17:25:11.480385+00:00Z",
     "response": null
+  },
+  {
+    "ticket_id": "e9879073-2ff3-4186-a0ae-354835e5c489",
+    "title": "Problema de login",
+    "description": "Um usuário não consegue fazer login no sistema",
+    "status": "completed",
+    "timestamp": "2026-09-19T17:26:26.500648+00:00Z",
+    "response": {
+      "category": "autenticação",
+      "severity": "média",
+      "summary": "Problema de login do usuário",
+      "suggested_action": "Resetar senha do usuário",
+      "requires_human": false
+    }
+  },
+  {
+    "ticket_id": "8eaa0223-29aa-4717-b3f4-ad28e463d511",
+    "title": "Banco de dados não responde",
+    "description": "BD crítico está offline, produção parada",
+    "status": "pending_human_approval",
+    "timestamp": "2026-09-19T17:26:26.583280+00:00Z",
+    "response": null
+  },
+  {
+    "ticket_id": "fdc6c8a4-6436-40b4-a43f-cd2b0f9cd01c",
+    "title": "Falha crítica de BD",
+    "description": "BD está completamente offline",
+    "status": "pending_human_approval",
+    "timestamp": "2026-09-19T17:26:26.643948+00:00Z",
+    "response": null
+  },
+  {
+    "ticket_id": "fdc6c8a4-6436-40b4-a43f-cd2b0f9cd01c",
+    "title": "Falha crítica de BD",
+    "description": "BD está completamente offline",
+    "status": "completed",
+    "timestamp": "2026-09-19T17:26:26.665289+00:00Z",
+    "response": {
+      "category": "infraestrutura",
+      "severity": "crítica",
+      "summary": "Falha crítica de BD",
+      "suggested_action": "Executar plano de recuperação",
+      "requires_human": true
+    }
+  },
+  {
+    "ticket_id": "1112f42b-74a0-4c1b-a95c-e5371cfdbb4e",
+    "title": "Infra crítica falha",
+    "description": "Servidor de produção está fora",
+    "status": "pending_human_approval",
+    "timestamp": "2026-09-19T17:26:26.740789+00:00Z",
+    "response": null
+  },
+  {
+    "ticket_id": "1112f42b-74a0-4c1b-a95c-e5371cfdbb4e",
+    "title": "Infra crítica falha",
+    "description": "Servidor de produção está fora",
+    "status": "rejected",
+    "timestamp": "2026-09-19T17:26:26.779723+00:00Z",
+    "response": null
   }
 ]
