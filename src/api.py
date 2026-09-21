@@ -23,23 +23,78 @@ _graph_store = {}
 
 
 class ChamadoRequest(BaseModel):
-    title: str = Field(min_length=3, description="Título do chamado (obrigatório)")
-    description: str = Field(min_length=10, description="Descrição do chamado (obrigatória)")
+    title: str = Field(min_length=3, max_length=200, description="Título do chamado (obrigatório)")
+    description: str = Field(min_length=10, max_length=5000, description="Descrição do chamado (obrigatória)")
 
     @model_validator(mode='before')
-    def check_injection(cls, values):
-        # Combine title and description for scanning
-        combined = f"{values.get('title','')} {values.get('description','')}"
-        suspicious = [
+    def validate_security(cls, values):
+        """Valida contra injeção de prompt, SQL injection, caracteres maliciosos, etc."""
+        title = values.get('title', '')
+        description = values.get('description', '')
+        combined = f"{title} {description}"
+
+        # 1. Detectar Prompt Injection - tentativa de ignorar instruções do sistema
+        prompt_injection_patterns = [
             r"ignore\s*all\s*previous\s*instructions",
             r"system\s*prompt",
             r"esqueça\s*tudo",
             r"desconsidere\s*as?\s*instruções?",
-            r"ignore\s*(?:todas?)?\s*as?\s*instruções?\s*anteriores"
+            r"ignore\s*(?:todas?)?\s*as?\s*instruções?\s*anteriores",
+            r"forget\s*(?:all\s*)?previous",
+            r"override\s*(?:all\s*)?previous",
+            r"SYSTEM\s*OVERRIDE",
+            r"JAILBREAK",
+            r"role\s*play",
+            r"pretend\s+(?:you|I|we)\s+are",
+            r"assume\s+the\s+role",
+            r"pretend\s+that\s+you"
         ]
-        for pat in suspicious:
+        
+        # 2. Detectar SQL Injection patterns (defense-in-depth)
+        sql_injection_patterns = [
+            r"('|\").*(?:union|select|insert|update|delete|drop|exec|execute).*('|\")",
+            r"--\s*(?:drop|delete|select|insert)",
+            r";.*(?:drop|delete|select|insert)",
+            r"or\s+['\"]?\s*=\s*['\"]",
+            r"or\s*['\"]?1['\"]?\s*=\s*['\"]?1['\"]?",
+            r"union\s+select",
+            r"drop\s+table"
+        ]
+        
+        # 3. Detectar caracteres de controle perigosos
+        dangerous_chars = ['\x00', '\x01', '\x02', '\x03', '\x04', '\x05', '\x06', '\x07']
+        
+        # Verificar Prompt Injection
+        for pat in prompt_injection_patterns:
             if re.search(pat, combined, re.IGNORECASE):
-                raise ValueError("Potencial ataque de Prompt Injection detectado. Requisição bloqueada.")
+                logger.warning(f"[SECURITY] Prompt Injection detectado: padrão '{pat}' encontrado")
+                raise ValueError(
+                    "Potencial ataque de Prompt Injection detectado. "
+                    "Requisição bloqueada por razões de segurança."
+                )
+        
+        # Verificar SQL Injection
+        for pat in sql_injection_patterns:
+            if re.search(pat, combined, re.IGNORECASE):
+                logger.warning(f"[SECURITY] SQL Injection suspeita detectada: padrão '{pat}' encontrado")
+                raise ValueError(
+                    "Potencial ataque de injeção SQL detectado. "
+                    "Requisição bloqueada por razões de segurança."
+                )
+        
+        # Verificar caracteres de controle
+        for char in dangerous_chars:
+            if char in combined:
+                logger.warning(f"[SECURITY] Caractere de controle perigoso detectado: {char!r}")
+                raise ValueError(
+                    "Caracteres de controle perigosos detectados na entrada. "
+                    "Requisição bloqueada."
+                )
+        
+        # Verificar comprimento após max_length da Pydantic (defesa adicional)
+        if len(title) > 200 or len(description) > 5000:
+            raise ValueError("Campos excederam tamanho máximo permitido.")
+        
         return values
 
 class AprovarRequest(BaseModel):

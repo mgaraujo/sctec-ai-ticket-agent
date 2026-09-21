@@ -333,14 +333,25 @@ Dados do chamado:
         # Log do prompt completo antes de enviar ao LLM
         logger.info(
             f"[Trace: {trace_id}] "
-            f"[PROMPT ENVIADO AO LLM]\n{prompt}"
+            f"[PROMPT ENVIADO AO LLM]\n"
+            f"{'='*80}\n"
+            f"{prompt}\n"
+            f"{'='*80}"
         )
 
         response = structured_llm.invoke(prompt)
 
+        # Log estruturado da resposta do LLM
         logger.info(
             f"[Trace: {trace_id}] "
-            f"[RESPOSTA DO LLM] {response}"
+            f"[RESPOSTA DO LLM RECEBIDA]\n"
+            f"{'='*80}\n"
+            f"Category: {response.category}\n"
+            f"Severity: {response.severity}\n"
+            f"Summary: {response.summary}\n"
+            f"Suggested Action: {response.suggested_action}\n"
+            f"Requires Human: {response.requires_human}\n"
+            f"{'='*80}"
         )
 
         return {
@@ -349,14 +360,14 @@ Dados do chamado:
 
     except (KeyboardInterrupt, SystemExit):
         raise
-    except Exception as e:  # noqa: BLE001
-        logger.error(
+    except Exception:
+        logger.exception(
             f"[Trace: {trace_id}] "
-            f"[ERRO] Falha ao gerar resposta: {e}"
+            f"[ERRO] Falha ao gerar resposta"
         )
 
         return {
-            "error": str(e)
+            "error": "Erro ao processar chamado"
         }
 
 
