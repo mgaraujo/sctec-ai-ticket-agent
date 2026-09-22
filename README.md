@@ -35,12 +35,6 @@ O fluxo foi modelado com **LangGraph explícito**, garantindo state compartilhad
            │
            ▼
 ┌─────────────────────┐
-│ classificar_risco   │
-│ (context only)      │
-└──────────┬──────────┘
-           │
-           ▼
-┌─────────────────────┐
 │ consultar_base      │
 │ (RAG context)       │
 └──────────┬──────────┘
@@ -53,35 +47,42 @@ O fluxo foi modelado com **LangGraph explícito**, garantindo state compartilhad
 │  requires_human)    │
 └──────────┬──────────┘
            │
-    ┌──────┴──────┐
-    │ Condicional │  [route_after_llm_response]
-    │ requer?     │
-    ▼             ▼
-requires_human=FALSE  requires_human=TRUE
-    │                 │
-    ▼                 ▼
-┌─────────────┐  ┌──────────────────────┐
-│finalizar    │  │aguardar_aprovacao    │
-│_chamado     │  │_humana               │
-│(completed)  │  │(interrupt_before)    │
-└─────────────┘  │PAUSA AQUI            │
-                 │(pending_human_       │
-                 │approval)             │
-                 └──────────┬───────────┘
-                            │
-                   ┌────────┴─────────┐
-                   │ Condicional      │ [route_human_decision]
-                   │ aprovado?        │
-                   ▼                  ▼
-            human_approved=TRUE  human_approved=FALSE
-                   │                 │
-                   ▼                 ▼
-            ┌─────────────┐   ┌─────────────┐
-            │finalizar    │   │finalizar    │
-            │_chamado     │   │_sem_acao    │
-            │(completed)  │   │(rejected)   │
-            └─────────────┘   └─────────────┘
+    ┌──────┴──────────────────┐
+    │ Condicional             │
+    │ requires_human?         │
+    ▼                         ▼
+   SIM                       NÃO
+    │                         │
+    ▼                         ▼
+┌──────────────────────┐  ┌──────────────┐
+│aguardar_aprovacao    │  │finalizar     │
+│_humana               │  │_chamado      │
+│                      │  │(completed)   │
+│⏸️  PAUSA AQUI        │  └──────────────┘
+│pending_human_        │
+│approval              │
+│(webhook enviado)     │
+└──────────┬───────────┘
+           │
+   ┌───────┴────────┐
+   │ Condicional    │
+   │ human_        │
+   │ approved?     │
+   ▼               ▼
+  SIM             NÃO
+   │               │
+   ▼               ▼
+┌─────────┐   ┌─────────┐
+│finalizar│   │finalizar│
+│_chamado │   │_sem_acao│
+│(✅ OK)  │   │(❌ REJECT)
+└─────────┘   └─────────┘
 ```
+
+Fluxo simplificado:
+- **analisar → consultar_base → gerar_resposta** (linear)
+- **Bifurcação:** requires_human? → Aprovação → Finalizar
+- **Webhook:** Notificado quando pausa em aprovação
 
 ---
 
@@ -106,7 +107,6 @@ requires_human=FALSE  requires_human=TRUE
 | Node | Entrada | Saída | Descrição |
 |------|---------|-------|-----------|
 | **analisar_chamado** | title, description | (atualiza status) | Valida e loga o chamado |
-| **classificar_risco** | - | (status=processing) | Node intermediário |
 | **consultar_base** | title, description | context | Busca na base de conhecimento |
 | **gerar_resposta** | all + context | structured_response | LLM decide severity e requires_human |
 | **aguardar_aprovacao_humana** | human_approved | (status update) | Processa decisão; **interrompe se None** |
