@@ -80,35 +80,10 @@ def analisar_chamado(
         f"Chamado: {state.get('ticket_title')}"
     )
 
-    return state
-
-
-# ============================================================
-# 2. CLASSIFICAÇÃO DE RISCO
-# ============================================================
-
-def classificar_risco(
-    state: GraphState,
-    config: RunnableConfig
-) -> GraphState:
-
-    trace_id = get_trace_id(config)
-
-    logger.info(
-        f"[Trace: {trace_id}] "
-        f"[NODE] classificar_risco | Avaliando chamado"
-    )
-
-    # Apenas registra o chamado. A decisão de risco será feita pelo LLM na resposta estruturada.
-    new_state = dict(state)
-    new_state["status"] = "processing"
-
-    logger.info(
-        f"[Trace: {trace_id}] "
-        f"[DECISÃO] Processando chamado (decisão final será do LLM)"
-    )
-
-    return new_state
+    return {
+        **state,
+        "status": "processing"
+    }
 
 
 # ============================================================
@@ -333,25 +308,14 @@ Dados do chamado:
         # Log do prompt completo antes de enviar ao LLM
         logger.info(
             f"[Trace: {trace_id}] "
-            f"[PROMPT ENVIADO AO LLM]\n"
-            f"{'='*80}\n"
-            f"{prompt}\n"
-            f"{'='*80}"
+            f"[PROMPT ENVIADO AO LLM]\n{prompt}"
         )
 
         response = structured_llm.invoke(prompt)
 
-        # Log estruturado da resposta do LLM
         logger.info(
             f"[Trace: {trace_id}] "
-            f"[RESPOSTA DO LLM RECEBIDA]\n"
-            f"{'='*80}\n"
-            f"Category: {response.category}\n"
-            f"Severity: {response.severity}\n"
-            f"Summary: {response.summary}\n"
-            f"Suggested Action: {response.suggested_action}\n"
-            f"Requires Human: {response.requires_human}\n"
-            f"{'='*80}"
+            f"[RESPOSTA DO LLM] {response}"
         )
 
         return {
@@ -360,14 +324,14 @@ Dados do chamado:
 
     except (KeyboardInterrupt, SystemExit):
         raise
-    except Exception:
-        logger.exception(
+    except Exception as e:  # noqa: BLE001
+        logger.error(
             f"[Trace: {trace_id}] "
-            f"[ERRO] Falha ao gerar resposta"
+            f"[ERRO] Falha ao gerar resposta: {e}"
         )
 
         return {
-            "error": "Erro ao processar chamado"
+            "error": str(e)
         }
 
 
@@ -379,8 +343,8 @@ def build_graph(checkpointer=None):
     """
     Constrói o grafo do atendimento com decisão baseada no LLM.
 
-    Fluxo:
-      1. analisar → classificar_risco → consultar_base → gerar_resposta
+    Fluxo simplificado:
+      1. analisar_chamado → consultar_base → gerar_resposta
       2. Verifica requires_human da resposta:
          - Se True: aguardar_aprovacao_humana → [aprovado] finalizar_chamado → END
                                               → [rejeitado] finalizar_sem_acao → END
@@ -389,7 +353,6 @@ def build_graph(checkpointer=None):
     workflow = StateGraph(GraphState)
 
     workflow.add_node("analisar_chamado", analisar_chamado)
-    workflow.add_node("classificar_risco", classificar_risco)
     workflow.add_node("consultar_base", node_consultar_base)
     workflow.add_node("gerar_resposta", gerar_resposta)
     workflow.add_node("aguardar_aprovacao_humana", aguardar_aprovacao_humana)
@@ -398,9 +361,8 @@ def build_graph(checkpointer=None):
 
     workflow.set_entry_point("analisar_chamado")
 
-    # Fluxo linear até gerar resposta
-    workflow.add_edge("analisar_chamado", "classificar_risco")
-    workflow.add_edge("classificar_risco", "consultar_base")
+    # Fluxo linear simplificado
+    workflow.add_edge("analisar_chamado", "consultar_base")
     workflow.add_edge("consultar_base", "gerar_resposta")
 
     # Após gerar resposta, verifica requires_human do LLM
