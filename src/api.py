@@ -8,6 +8,7 @@ from pydantic import BaseModel, Field, model_validator
 
 from src.graph import get_graph
 from src.history import append_history, get_ticket
+from src.webhook import send_approval_notification, send_approval_response_notification
 
 logger = logging.getLogger("TriagemAgente")
 
@@ -168,12 +169,26 @@ def iniciar_triagem(request: ChamadoRequest):
     
     if requires_human:
         _record_history(thread_id, request.title, request.description, "pending_human_approval", None)
+        
+        # Envia notificação via webhook
+        approval_endpoint = f"http://localhost:8000/triagem/{thread_id}/approve"
+        send_approval_notification(
+            thread_id=thread_id,
+            ticket_title=request.title,
+            ticket_description=request.description,
+            severity=structured_response.severity if structured_response else "desconhecida",
+            summary=structured_response.summary if structured_response else "",
+            suggested_action=structured_response.suggested_action if structured_response else "",
+            approval_url=approval_endpoint
+        )
+        
         return {
             "status": "pending_human_approval",
             "thread_id": thread_id,
             "message": (
                 "Chamado requer aprovação humana antes de qualquer ação operacional. "
-                f"Faça POST em /triagem/{thread_id}/approve para continuar."
+                f"Faça POST em /triagem/{thread_id}/approve para continuar. "
+                "Webhook foi enviado se configurado."
             ),
         }
 
@@ -220,6 +235,14 @@ def aprovar_triagem(thread_id: str, request: AprovarRequest):
     
     # Obtém o estado final
     final_state = graph.get_state(config).values
+    
+    # Envia notificação de decisão via webhook (opcional)
+    send_approval_response_notification(
+        thread_id=thread_id,
+        ticket_title=stored["title"],
+        approved=request.approve,
+        reason="Decisão enviada via /approve endpoint"
+    )
     
     # Limpa o armazenamento (não precisa mais)
     del _graph_store[thread_id]

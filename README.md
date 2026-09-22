@@ -519,7 +519,74 @@ except Exception as e:
 
 ---
 
-## 13. Limitações
+## 13. Webhook - Notificações em Tempo Real
+
+O sistema pode enviar notificações via webhook quando um chamado crítico aguarda aprovação. Isso permite integração com Slack, Discord, teams ou qualquer sistema externo.
+
+### Setup Rápido
+
+1. **Teste com webhook.site:**
+   ```bash
+   # Gere uma URL em https://webhook.site
+   export WEBHOOK_URL=https://webhook.site/seu-uuid
+   
+   # Inicie a API
+   uvicorn src.api:app --reload
+   ```
+
+2. **Envie um chamado crítico:**
+   ```bash
+   curl -X POST http://localhost:8000/triagem \
+     -H "Content-Type: application/json" \
+     -d '{
+       "title": "Banco de dados não responde",
+       "description": "BD crítico está offline, produção parada"
+     }'
+   ```
+
+3. **Veja a notificação em webhook.site** ✅
+
+### Payload Enviado
+
+```json
+{
+  "type": "ticket_approval_required",
+  "timestamp": "2026-09-18T10:30:45.123456Z",
+  "ticket": {
+    "thread_id": "550e8400-e29b-41d4-a716-446655440000",
+    "title": "Banco de dados não responde",
+    "description": "...",
+    "severity": "crítica",
+    "summary": "Banco de dados crítico está offline",
+    "suggested_action": "..."
+  },
+  "approval": {
+    "approve_url": "http://localhost:8000/triagem/550e8400.../approve?approve=true",
+    "reject_url": "http://localhost:8000/triagem/550e8400.../approve?approve=false",
+    "approval_endpoint": "http://localhost:8000/triagem/550e8400.../approve"
+  }
+}
+```
+
+### Integrações Suportadas
+
+- ✅ **Slack** - Mensagens com botões
+- ✅ **Discord** - Embeds e notificações
+- ✅ **Teams** - Adaptive cards
+- ✅ **Zapier/Make** - Qualquer ação
+- ✅ **Custom** - Qualquer URL HTTPS
+
+### Documentação Completa
+
+Veja `docs/WEBHOOK.md` para:
+- Configuração em produção
+- Exemplos de integração (Slack, Discord, Zapier)
+- Retry e error handling
+- Segurança e validação
+
+---
+
+## 14. Limitações
 
 1. **Checkpointer em Memória**
    - Dados perdidos ao reiniciar
@@ -543,7 +610,7 @@ except Exception as e:
 
 ---
 
-## 14. Instruções Completas para Avaliador
+## 15. Instruções Completas para Avaliador
 
 ```bash
 # 1. Clonar
